@@ -1,0 +1,53 @@
+import numpy as np
+import cv2
+import base64
+def result(data):
+  decoded_data = base64.b64decode(data)
+  np_data = np.fromstring(decoded_data,np.uint8)
+  image = cv2.imdecode(np_data,cv2.IMREAD_UNCHANGED)
+  image = cv2.resize(image, (500, 500))
+  blank_mask = np.zeros(image.shape, dtype=np.uint8)
+  original = image.copy()
+  hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+  lower = np.array([0, 0, 0])
+  upper = np.array([255, 155, 155])
+  mask = cv2.inRange(hsv, lower, upper)
+  kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+  opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+  close = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=1)
+  cnts = cv2.findContours(close, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+  cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+  cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[0]
+  cv2.fillPoly(blank_mask, [cnts], (255,255,255))
+  blank_mask = cv2.cvtColor(blank_mask, cv2.COLOR_BGR2GRAY)
+  result = cv2.bitwise_and(original,original,mask=blank_mask)
+  x,y,w,h = cv2.boundingRect(blank_mask)
+  ROI = result[y:y+h, x:x+w]
+  gray = cv2.cvtColor(ROI, cv2.COLOR_BGR2GRAY)
+  edged = cv2.Canny(gray, 30, 200)
+  text_pixels = cv2.countNonZero(edged)
+  percentage = (text_pixels / (ROI.shape[0] * ROI.shape[1])) * 100
+  contours, hierarchy = cv2.findContours(edged,
+                                         cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+  a = (round(percentage/0.2, 2))
+  if a > 100:
+   a = 100
+  if a < 25 and ((len(contours))<40):
+   gray = cv2.cvtColor(ROI, cv2.COLOR_BGR2GRAY)
+   ret, thresh_basic = cv2.threshold(ROI, 100, 255, cv2.THRESH_BINARY)
+   n_black_pix = 0
+   all = 0
+   for i in range(0, 256):
+    all = all + np.sum(thresh_basic == i)
+   for i in range(0, 60):
+    n_black_pix = n_black_pix + np.sum(thresh_basic == i)
+   per = (100 - (round(n_black_pix / all, 2) * 100))
+   if (per > 7) and (per < 30):
+    per = per * 2
+   elif per > 30:
+    per = per + 20
+   if per > 100:
+    per = 100
+   a = per
+
+  return (a)
