@@ -42,12 +42,6 @@ def result(data):
    for i in range(0, 60):
     n_black_pix = n_black_pix + np.sum(thresh_basic == i)
    per = (100 - (round(n_black_pix / all, 2) * 100))
-   if (per > 7) and (per < 30):
-    per = per * 2
-   elif per > 30:
-    per = per + 20
-   if per > 100:
-    per = 100
    a = per
 
   return (a)
